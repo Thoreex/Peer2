@@ -29,7 +29,7 @@ class Cliente(object):
         }
         socketJson = json.dumps(socketDic)
         
-        transferenciaHilo = threading.Thread(target=transferencia, args=(socketArchivo, hashArchivo, ))
+        transferenciaHilo = threading.Thread(target=transferencia, args=(socketArchivo, misArchivos, hashArchivo, ))
         transferenciaHilo.start()
 
         return socketJson
@@ -37,13 +37,13 @@ class Cliente(object):
     def pingPong(self):
         return True
 
-def transferencia(self, socketArchivo, hashArchivo):
+def transferencia(socketArchivo, misArchivos, hashArchivo):
     # Abrir archivo
     streamArchivo = open(misArchivos[hashArchivo]['ruta'], "rb")
 
     # Escuchar en socket
     socketArchivo.listen()
-    connArchivo, addrArchivo = socketArchivo.accept()
+    connArchivo, _ = socketArchivo.accept()
 
     tamannoTrozo = math.ceil(misArchivos[hashArchivo]['tamanno'] / misArchivos[hashArchivo]['trozos'])
     while True:
@@ -104,18 +104,20 @@ def main():
         # Opcion a escoger
         choice = input("Escoge una opcion [1-4]: ")
         
+        # Siempre bajar lista de archivos antes de realizar una accion
+        listaDirectorio = json.loads(trackerProxy.listaDirectorio())
+        for keyNodo in listaDirectorio.keys():
+            for keyArchivo, valueArchivo in listaDirectorio[keyNodo]['archivos'].items():
+                if keyArchivo not in listaArchivos:
+                    listaArchivos[keyArchivo] = valueArchivo
+                    listaArchivos[keyArchivo]['nodos'] = [
+                        keyNodo
+                    ]
+                else:
+                    listaArchivos[keyArchivo]['nodos'].append(keyNodo)
+
         # Segun opcion escogida
         if choice == '1':
-            listaDirectorio = json.loads(trackerProxy.listaDirectorio())
-            for keyNodo in listaDirectorio.keys():
-                for keyArchivo, valueArchivo in listaDirectorio[keyNodo]['archivos'].items():
-                    if keyArchivo not in listaArchivos:
-                        listaArchivos[keyArchivo] = valueArchivo
-                        listaArchivos[keyArchivo]['nodos'] = [
-                            keyNodo
-                        ]
-                    else:
-                        listaArchivos[keyArchivo]['nodos'].append(keyNodo)
             print(listaArchivos)
         if choice == '2':
             rutaArchivo = input("Ingrese ruta del archivo: ")
@@ -136,16 +138,16 @@ def main():
                 "tamanno": tamannoArchivo
             }
             archivoJson = json.dumps(archivoDic)
-            trackerProxy.nuevoArchivo(str(clienteNombre), hashArchivo, archivoJson)
+            archivoTrozos = trackerProxy.nuevoArchivo(str(clienteNombre), hashArchivo, archivoJson)
 
             # Guardar en una lista de mis archivos
             archivoLocalDic = {
                 "nombre": nombreArchivo,
                 "tamanno": tamannoArchivo,
-                "ruta": rutaArchivo
+                "ruta": rutaArchivo,
+                "trozos": archivoTrozos
             }
-            archivoLocalJson = json.dumps(archivoDic)
-            misArchivos[hashArchivo] = archivoLocalJson
+            misArchivos[hashArchivo] = archivoLocalDic
         if choice == '3':
             hashArchivo = input("Ingrese hash del archivo: ")
 
@@ -162,7 +164,7 @@ def main():
             # Inicia handshake
             indiceNodoRandom = random.randrange(0, len(listaArchivos[hashArchivo]['nodos']))
             descargaProxy = Pyro4.Proxy(listaDirectorio[listaArchivos[hashArchivo]['nodos'][indiceNodoRandom]]['uri'])
-            respuestaHandshake = descargaProxy.handshake()
+            respuestaHandshake = descargaProxy.handshake(hashArchivo)
 
             if not respuestaHandshake:
                 print('No se pudo realizar la descarga')
@@ -178,7 +180,7 @@ def main():
             streamArchivo = open(listaArchivos[hashArchivo]['nombre'],'wb')
 
             # Se obtiene por socket el archivo
-            tamannoTrozo = math.ceil(misArchivos[hashArchivo]['tamanno'] / misArchivos[hashArchivo]['trozos'])
+            tamannoTrozo = math.ceil(listaArchivos[hashArchivo]['tamanno'] / listaArchivos[hashArchivo]['trozos'])
             while True:
                 trozoArchivo = socketArchivo.recv(tamannoTrozo)
                 if not trozoArchivo:
