@@ -17,10 +17,10 @@ class GreetingMaker(object):
                "Behold the warranty -- the bold print giveth and the fine print taketh away.".format(name)
   
     def conectar(self, cadena):#los servidores/cleintes se conectan
-        open('C:\\Users\\francisco\\Documents\\python_proyect\\nodoConexiones.txt', 'w').close()
+        open('nodoConexiones.txt', 'w').close()
         nuevoNodo = json.loads(cadena)
         listaNodos[nuevoNodo['nombre']] = nuevoNodo
-        f = open('C:\\Users\\francisco\\Documents\\python_proyect\\nodoConexiones.txt','a')
+        f = open('nodoConexiones.txt','a')
         f.write((json.dumps(listaNodos)))
         f.close()
         #print(listaNodos)
@@ -31,7 +31,7 @@ class GreetingMaker(object):
         tamano = int(archivoNuevo['tamanno'])
         archivoNuevo['trozos'] = int(math.ceil(tamano/500000))
         listaNodos[nombreNodo]['archivos'][nombreArchivo] = archivoNuevo      
-        f = open('C:\\Users\\francisco\\Documents\\python_proyect\\nodoConexiones.txt','a')
+        f = open('nodoConexiones.txt','a')
         f.write((json.dumps(listaNodos)))
         f.close()  
         #print(listaNodos)
@@ -68,7 +68,7 @@ def main():  #inicio de progrma
 
         if select == '1' :
             while control != True:
-                f = open("C:\\Users\\francisco\\Documents\\python_proyect\\config.txt", "r")
+                f = open("config.txt", "r")
                 data = f.read()
                 datos = json.loads(data)
                 print( 67 * "-")
