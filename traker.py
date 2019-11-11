@@ -35,7 +35,7 @@ class GreetingMaker(object):
         f.write((json.dumps(listaNodos)))
         f.close()  
         #print(listaNodos)
-        return "se ha conectado con exito"
+        return archivoNuevo['trozos']
 
     def listaDirectorio(self):#devuleve la lista el directorio de Clientes/Servidores
         return json.dumps(listaNodos)
@@ -48,9 +48,11 @@ def cicloTraker(daemon):#iniciar servisor pyro
 def actulizarListaNodos():
     for nodo in listaNodos:
         uri = nodo['uri']
-    trackerProxy = Pyro4.Proxy(uri)
-    resp = trackerProxy.pingpong()
-
+        try: 
+            trackerProxy = Pyro4.Proxy(uri)
+            resp = trackerProxy.pingpong()
+        except:
+            listaNodos.pop(nodo)
 
 def main():  #inicio de progrma
     control = False
