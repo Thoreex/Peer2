@@ -5,10 +5,12 @@ import math
 from getpass import getpass
 from builtins import str
 import threading
+import time
 #from datetime import datetim
 
 
 listaNodos = {}
+primerNodo = False
 
 @Pyro4.expose
 class GreetingMaker(object):
@@ -17,10 +19,10 @@ class GreetingMaker(object):
                "Behold the warranty -- the bold print giveth and the fine print taketh away.".format(name)
   
     def conectar(self, cadena):#los servidores/cleintes se conectan
-        open('nodoConexiones.txt', 'w').close()
+        open('nodoConexiones.json', 'w').close()
         nuevoNodo = json.loads(cadena)
         listaNodos[nuevoNodo['nombre']] = nuevoNodo
-        f = open('nodoConexiones.txt','a')
+        f = open('nodoConexiones.json','a')
         f.write((json.dumps(listaNodos)))
         f.close()
         #print(listaNodos)
@@ -30,8 +32,9 @@ class GreetingMaker(object):
         archivoNuevo =  json.loads(infoArchivo)
         tamano = int(archivoNuevo['tamanno'])
         archivoNuevo['trozos'] = int(math.ceil(tamano/500000))
-        listaNodos[nombreNodo]['archivos'][nombreArchivo] = archivoNuevo      
-        f = open('nodoConexiones.txt','a')
+        listaNodos[nombreNodo]['archivos'][nombreArchivo] = archivoNuevo 
+        open('nodoConexiones.json', 'w').close()     
+        f = open('nodoConexiones.json','a')
         f.write((json.dumps(listaNodos)))
         f.close()  
         #print(listaNodos)
@@ -46,13 +49,26 @@ def cicloTraker(daemon):#iniciar servisor pyro
 
 
 def actulizarListaNodos():
-    for nodo in listaNodos:
-        uri = nodo['uri']
-        try: 
-            trackerProxy = Pyro4.Proxy(uri)
-            resp = trackerProxy.pingpong()
-        except:
-            listaNodos.pop(nodo)
+    while True:
+        time.sleep(5)
+        f = open('nodoConexiones.json','r')
+        nodosAux = f.read()
+        f.close() 
+        if nodosAux != '""' and nodosAux and nodosAux != '':
+            nodosAux = json.loads(nodosAux)
+            for nodo in list(nodosAux):
+                uri = nodosAux[nodo]['uri']
+                try: 
+                    trackerProxy = Pyro4.Proxy(uri)
+                    resp = trackerProxy.pingPong()
+                    #print(resp)
+                except:
+                    nodoData = nodosAux
+                    nodoData.pop(nodo)
+                    open('nodoConexiones.json', 'w').close()
+                    f = open('nodoConexiones.json','a')
+                    f.write((json.dumps(nodoData)))
+                    f.close()  
 
 def main():  #inicio de progrma
     control = False
@@ -62,13 +78,12 @@ def main():  #inicio de progrma
         print( 67 * "-")
         print('digite 1 para iniciar Traker ')
         print('digite 2 para ver estadisticas ')
-        print('iniciar ping pong 3')
         select = input('selecione  ')
         print( 67 * "-")
 
         if select == '1' :
             while control != True:
-                f = open("config.txt", "r")
+                f = open("config.json", "r")
                 data = f.read()
                 datos = json.loads(data)
                 print( 67 * "-")
@@ -78,23 +93,34 @@ def main():  #inicio de progrma
                 if userName == datos['usuario'] and passWord == datos['pass']:
                     control = True
                     loginSeguro = True
-                    print('Exito Login Seguro')    
+                    print('Exito Login Seguro')  
+                    trakerDaemon = Pyro4.Daemon(host=Pyro4.socketutil.getIpAddress(''),port=22222)               # make a Pyro daemon
+                    uri = trakerDaemon.register(GreetingMaker)   # register the greeting maker as a Pyro object
+                    print("Ready. Object uri =", uri)      # print the uri so we can use it in the client later
+                    #daemon.requestLoop() 
+                    trakerHilo = threading.Thread(target=cicloTraker, args=(trakerDaemon,))
+                    trakerHilo.start()
+                    actualizarHilo = threading.Thread(target=actulizarListaNodos, args=())
+                    actualizarHilo.start() 
                 else:
-                    print('Error de autentificación, Intente de Nuevo')   
+                    print('Error de autentificación, Intente de Nuevo')    
 
-            if loginSeguro:
-                trakerDaemon = Pyro4.Daemon(host=Pyro4.socketutil.getIpAddress(''),port=22222)               # make a Pyro daemon
-                uri = trakerDaemon.register(GreetingMaker)   # register the greeting maker as a Pyro object
-                print("Ready. Object uri =", uri)      # print the uri so we can use it in the client later
-                #daemon.requestLoop() 
-                trakerHilo = threading.Thread(target=cicloTraker, args=(trakerDaemon,))
-                trakerHilo.start()
+        if select == '2':
+            print( 67 * "-")
+            f = open('nodoConexiones.json','r')
+            nodosAux = f.read()
+            f.close()
+            nodosAux = json.loads(nodosAux)
+            print('Numero de Nodos Conectados')
+            numNodos = 0
+            for nodo in list(nodosAux):
+                print('Nombre de Nodo:  ' + nodo)
+                for arc in list(nodosAux[nodo]['archivos']):
+                     print('Nombre de Archivo disponible:  ' + arc)
+                numNodos += 1
+                print( 67 * "-")
+            print('Numero de Nodos Conectados: ' + str(numNodos))
 
-
-            
-            if select == '3':
-                #funcion para actualizar lso nodos
-                actulizarListaNodos()
 
 
 if __name__== "__main__":
